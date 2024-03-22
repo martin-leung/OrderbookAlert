@@ -1,0 +1,3 @@
+[submodule "OrderbookAlert"]
+	path = OrderbookAlert
+	url = https://github.com/martin-leung/OrderbookAlert.git
