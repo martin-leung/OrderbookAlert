@@ -2,10 +2,10 @@ import datetime
 import time
 from datetime import datetime
 from flask import Flask, json
+from InstrumentService import InstrumentService
 from TelegramBot import TelegramBotService
 import asyncio
 import websockets
-import requests
 
 app = Flask(__name__)
 
@@ -13,15 +13,13 @@ bot_token = "6494493719:AAH054SZmUbBAPzNjcIrQONhGXQVs3gUUAQ"
 chat_id = "-4104771211"
 bot_service = TelegramBotService(bot_token, chat_id)
 
-THRESHOLD_PERCENTAGE = 0.0002  # 30
+THRESHOLD_PERCENTAGE = 0.015  #
 DURATION_THRESHOLD_SECONDS = 60  # 60 seconds
-
 ALERT_FREQUENCY_SECONDS = 300  # Frequency of subsequent alerts (every 5 minutes)
 
 # Store last alert time for each instrument to avoid sending repeated alerts
 last_alert_time = {}
 
-ETH_PRICE = 3500  # Sample ETH price
 initial_alert_triggered = {}
 initial_alert_time = {}
 
@@ -32,39 +30,6 @@ last_alert_lock = asyncio.Lock()
 def send_test_message():
     bot_service.send_message("Test message from main.py")
     return "Message sent successfully from main.py"
-
-
-def get_instruments():
-    url = "https://api.lyra.finance/public/get_instruments"
-    params = {
-        "expired": "false",
-        "instrument_type": "option",
-        "currency": "ETH"
-    }
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()  # Raise an exception for HTTP errors
-        data = response.json()  # Parse response as JSON
-        return data
-    except requests.exceptions.RequestException as e:
-        print("Error making request:", e)
-        return None
-
-def extract_instrument_names(response):
-    try:
-        instrument_map = {}
-        for item in response["result"]:
-            instrument_name = item["instrument_name"]
-            key = instrument_name.split("-")[1]  # Extract the substring "20240531" from the instrument name
-            if key not in instrument_map:
-                instrument_map[key] = []
-            instrument_map[key].append(instrument_name)
-        print(instrument_map)
-        return instrument_map
-    except KeyError as e:
-        print("KeyError:", e)
-        return None
-
 
 def calculate_effective_price(orderbook, spread_amount):
     total_amount = 0
@@ -78,14 +43,21 @@ def calculate_effective_price(orderbook, spread_amount):
             break
     return weighted_price / spread_amount if spread_amount != 0 else 0
 
-def calculate_spread_percentage(bids, asks):
+def calculate_spread_percentage(bids, asks, eth_price):
     # Assuming spread amount of 25
     spread_amount = 25
     effective_bid_price = calculate_effective_price(bids, spread_amount)
     effective_ask_price = calculate_effective_price(asks, spread_amount)
     spread = effective_ask_price - effective_bid_price
-    spread_percentage = spread / ETH_PRICE
+    spread_percentage = spread / eth_price
     return spread_percentage
+
+def extract_value(instrument_name):
+    parts = instrument_name.split("-")
+    if len(parts) >= 3:
+        return int(parts[2])
+    else:
+        return None
 
 def process_message(message, instrument_name):
     data = json.loads(message)
@@ -94,9 +66,9 @@ def process_message(message, instrument_name):
         data = params["data"]
         bids = data.get("bids", [])
         asks = data.get("asks", [])
-
+        eth_price = extract_value(instrument_name)
         if bids and asks:
-            spread_percentage = calculate_spread_percentage(bids, asks)
+            spread_percentage = calculate_spread_percentage(bids, asks, eth_price)
             current_time = time.time()
             initial_alert_time_instrument = initial_alert_time.get(instrument_name, 0)
             last_alert = last_alert_time.get(instrument_name, 0)
@@ -105,22 +77,20 @@ def process_message(message, instrument_name):
                     # Initial alert, wait 60 seconds before sending
                     initial_alert_triggered[instrument_name] = True
                     initial_alert_time[instrument_name] = current_time
-                    print("Initial Alert for " + instrument_name + " found at time: " + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-                    print(bids)
-                    print(asks)
+                    print("Initial Alert for " + instrument_name + " found at time: " + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " Spread: " + str(spread_percentage))
                 elif current_time - initial_alert_time_instrument >= DURATION_THRESHOLD_SECONDS:
                     if current_time - last_alert >= ALERT_FREQUENCY_SECONDS:
                         # Trigger subsequent alert if 5 minutes have passed since last alert
                         send_alert(instrument_name, spread_percentage)
-                        print(bids)
-                        print(asks)
                         last_alert_time[instrument_name] = current_time
             else:
                 # Reset the alert if spread falls below threshold
                 initial_alert_triggered[instrument_name] = False
                 if instrument_name in initial_alert_time:
+                    print("Deleted: " + instrument_name + " Spread: " + str(spread_percentage))
                     del initial_alert_time[instrument_name]
                 if instrument_name in last_alert_time:
+                    print("Deleted: " + instrument_name + " Spread: " + str(spread_percentage))
                     del last_alert_time[instrument_name]
 
 def send_alert(instrument_name, spread_percentage):
@@ -133,7 +103,6 @@ async def connect_and_subscribe(instrument_name):
     uri = "wss://api.lyra.finance/ws"
     group = "1"
     depth = "20"
-
     async with websockets.connect(uri) as websocket:
         # Construct the subscription request
         channel = f"orderbook.{instrument_name}.{group}.{depth}"
@@ -144,7 +113,6 @@ async def connect_and_subscribe(instrument_name):
             }
         }
         print(subscription_request)
-
         # Send the subscription request
         await websocket.send(json.dumps(subscription_request))
 
@@ -156,9 +124,9 @@ async def connect_and_subscribe(instrument_name):
 
 
 async def main():
-    instruments_data = get_instruments()
+    instruments_data = InstrumentService.get_instruments()
     if instruments_data:
-        instrument_names = extract_instrument_names(instruments_data)
+        instrument_names = InstrumentService.extract_instrument_names(instruments_data)
         if instrument_names:
             min_key = min(instrument_names.keys())  # Find the minimum key
             min_instrument_names = instrument_names[min_key]  # Get instrument names corresponding to the minimum key
@@ -166,5 +134,4 @@ async def main():
             await asyncio.gather(*tasks)
 
 if __name__ == "__main__":
-    print("start")
     asyncio.run(main())
