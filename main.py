@@ -3,7 +3,9 @@ import time
 from datetime import datetime
 from flask import Flask, json
 from InstrumentService import InstrumentService
-from TelegramBot import TelegramBotService
+from TelegramBot import TelegramBot
+from LiquidityEvaluator import LiquidityEvaluator
+from AlertSender import AlertSender
 import asyncio
 import websockets
 
@@ -11,53 +13,17 @@ app = Flask(__name__)
 
 bot_token = "6494493719:AAH054SZmUbBAPzNjcIrQONhGXQVs3gUUAQ"
 chat_id = "-4104771211"
-bot_service = TelegramBotService(bot_token, chat_id)
+bot_service = TelegramBot(bot_token, chat_id)
+liquidityEvaluator = LiquidityEvaluator()
+alertSender = AlertSender(bot_service)
 
-THRESHOLD_PERCENTAGE = 0.015  #
+THRESHOLD_PERCENTAGE = 0.02  #
 DURATION_THRESHOLD_SECONDS = 60  # 60 seconds
 ALERT_FREQUENCY_SECONDS = 300  # Frequency of subsequent alerts (every 5 minutes)
 
-# Store last alert time for each instrument to avoid sending repeated alerts
 last_alert_time = {}
-
 initial_alert_triggered = {}
 initial_alert_time = {}
-
-initial_alert_lock = asyncio.Lock()
-last_alert_lock = asyncio.Lock()
-
-@app.route('/')
-def send_test_message():
-    bot_service.send_message("Test message from main.py")
-    return "Message sent successfully from main.py"
-
-def calculate_effective_price(orderbook, spread_amount):
-    total_amount = 0
-    weighted_price = 0
-    for price, amount in orderbook:
-        price = float(price)
-        amount = min(float(amount), spread_amount - total_amount)
-        total_amount += amount
-        weighted_price += price * amount
-        if total_amount >= spread_amount:
-            break
-    return weighted_price / spread_amount if spread_amount != 0 else 0
-
-def calculate_spread_percentage(bids, asks, eth_price):
-    # Assuming spread amount of 25
-    spread_amount = 25
-    effective_bid_price = calculate_effective_price(bids, spread_amount)
-    effective_ask_price = calculate_effective_price(asks, spread_amount)
-    spread = effective_ask_price - effective_bid_price
-    spread_percentage = spread / eth_price
-    return spread_percentage
-
-def extract_value(instrument_name):
-    parts = instrument_name.split("-")
-    if len(parts) >= 3:
-        return int(parts[2])
-    else:
-        return None
 
 def process_message(message, instrument_name):
     data = json.loads(message)
@@ -66,38 +32,107 @@ def process_message(message, instrument_name):
         data = params["data"]
         bids = data.get("bids", [])
         asks = data.get("asks", [])
-        eth_price = extract_value(instrument_name)
-        if bids and asks:
-            spread_percentage = calculate_spread_percentage(bids, asks, eth_price)
-            current_time = time.time()
-            initial_alert_time_instrument = initial_alert_time.get(instrument_name, 0)
-            last_alert = last_alert_time.get(instrument_name, 0)
-            if spread_percentage >= THRESHOLD_PERCENTAGE:
-                if not initial_alert_triggered.get(instrument_name, False):
-                    # Initial alert, wait 60 seconds before sending
-                    initial_alert_triggered[instrument_name] = True
-                    initial_alert_time[instrument_name] = current_time
-                    print("Initial Alert for " + instrument_name + " found at time: " + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " Spread: " + str(spread_percentage))
-                elif current_time - initial_alert_time_instrument >= DURATION_THRESHOLD_SECONDS:
-                    if current_time - last_alert >= ALERT_FREQUENCY_SECONDS:
-                        # Trigger subsequent alert if 5 minutes have passed since last alert
-                        send_alert(instrument_name, spread_percentage)
-                        last_alert_time[instrument_name] = current_time
+        eth_price = liquidityEvaluator.extract_eth_price(instrument_name)
+
+        current_time = time.time()
+        initial_alert_time_instrument = initial_alert_time.get(instrument_name, 0)
+        last_alert = last_alert_time.get(instrument_name, 0)
+
+        if not bids and not asks:
+            handle_empty_bids_and_asks(instrument_name, current_time, initial_alert_time_instrument, last_alert)
+            return
+
+        if not bids:
+            handle_empty_bids(instrument_name, current_time, initial_alert_time_instrument, last_alert)
+            return
+
+        if not asks:
+            handle_empty_asks(instrument_name, current_time, initial_alert_time_instrument, last_alert)
+            return
+
+        if liquidityEvaluator.enough_bids_and_asks(bids, asks):
+            handle_sufficient_liquidity(bids, asks, eth_price, instrument_name, current_time, initial_alert_time_instrument, last_alert)
+        else:
+            handle_insufficient_liquidity(bids, asks, instrument_name, current_time, initial_alert_time_instrument, last_alert)
+
+
+def handle_empty_bids_and_asks(instrument_name, current_time, initial_alert_time_instrument, last_alert):
+    if not initial_alert_triggered.get(instrument_name, False):
+        print("Initial Alert for empty bid and asks " + instrument_name + " found at time: " + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        initial_alert_triggered[instrument_name] = True
+        initial_alert_time[instrument_name] = current_time
+    elif current_time - initial_alert_time_instrument >= DURATION_THRESHOLD_SECONDS:
+        if current_time - last_alert >= ALERT_FREQUENCY_SECONDS:
+            print("Alert for empty bid and asks " + instrument_name + " found at time: " + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            # send_empty_alert(instrument_name)
+            last_alert_time[instrument_name] = current_time
+
+
+def handle_empty_bids(instrument_name, current_time, initial_alert_time_instrument, last_alert):
+    if not initial_alert_triggered.get(instrument_name, False):
+        print("Initial Alert for empty bid " + instrument_name + " found at time: " + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        initial_alert_triggered[instrument_name] = True
+        initial_alert_time[instrument_name] = current_time
+    elif current_time - initial_alert_time_instrument >= DURATION_THRESHOLD_SECONDS:
+        if current_time - last_alert >= ALERT_FREQUENCY_SECONDS:
+            print("Alert for empty bid " + instrument_name + " found at time: " + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            # send_bids_empty_alert(instrument_name)
+            last_alert_time[instrument_name] = current_time
+
+
+def handle_empty_asks(instrument_name, current_time, initial_alert_time_instrument, last_alert):
+    if not initial_alert_triggered.get(instrument_name, False):
+        print("Initial Alert for empty ask " + instrument_name + " found at time: " + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        initial_alert_triggered[instrument_name] = True
+        initial_alert_time[instrument_name] = current_time
+    elif current_time - initial_alert_time_instrument >= DURATION_THRESHOLD_SECONDS:
+        if current_time - last_alert >= ALERT_FREQUENCY_SECONDS:
+            print("Alert for empty ask " + instrument_name + " found at time: " + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            # send_asks_empty_alert(instrument_name)
+            last_alert_time[instrument_name] = current_time
+
+def handle_sufficient_liquidity(bids, asks, eth_price, instrument_name, current_time, initial_alert_time_instrument, last_alert):
+    spread_percentage = liquidityEvaluator.calculate_spread_percentage(bids, asks, eth_price)
+    if spread_percentage >= THRESHOLD_PERCENTAGE:
+        if not initial_alert_triggered.get(instrument_name, False):
+            # Initial alert, wait 60 seconds before sending
+            print("Initial Alert for " + instrument_name + " found at time: " + datetime.now().strftime("%Y-%m-%d %H:%M:%S") + " Spread: " + str(spread_percentage))
+            initial_alert_triggered[instrument_name] = True
+            initial_alert_time[instrument_name] = current_time
+        elif current_time - initial_alert_time_instrument >= DURATION_THRESHOLD_SECONDS:
+            if current_time - last_alert >= ALERT_FREQUENCY_SECONDS:
+                # Trigger subsequent alert if 5 minutes have passed since last alert
+                alertSender.send_normal_alert(instrument_name, spread_percentage, THRESHOLD_PERCENTAGE)
+                last_alert_time[instrument_name] = current_time
+    else:
+        # Reset the alert if spread falls below threshold
+        initial_alert_triggered[instrument_name] = False
+        if instrument_name in initial_alert_time:
+            print("Deleted: " + instrument_name + " Spread: " + str(spread_percentage))
+            del initial_alert_time[instrument_name]
+        if instrument_name in last_alert_time:
+            print("Deleted: " + instrument_name + " Spread: " + str(spread_percentage))
+            del last_alert_time[instrument_name]
+
+
+def handle_insufficient_liquidity(bids, asks, instrument_name, current_time, initial_alert_time_instrument, last_alert):
+    if not initial_alert_triggered.get(instrument_name, False):
+        # Initial alert, wait 60 seconds before sending
+        print(f"Initial Alert for {instrument_name}: Insufficient liquidity. Waiting for 60 seconds before sending." + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        initial_alert_triggered[instrument_name] = True
+        initial_alert_time[instrument_name] = current_time
+    elif current_time - initial_alert_time_instrument >= DURATION_THRESHOLD_SECONDS:
+        if current_time - last_alert >= ALERT_FREQUENCY_SECONDS:
+            if not bids:
+                total_depth = sum(float(ask[1]) for ask in asks)
+            elif not asks:
+                total_depth = sum(float(bid[1]) for bid in bids)
             else:
-                # Reset the alert if spread falls below threshold
-                initial_alert_triggered[instrument_name] = False
-                if instrument_name in initial_alert_time:
-                    print("Deleted: " + instrument_name + " Spread: " + str(spread_percentage))
-                    del initial_alert_time[instrument_name]
-                if instrument_name in last_alert_time:
-                    print("Deleted: " + instrument_name + " Spread: " + str(spread_percentage))
-                    del last_alert_time[instrument_name]
-
-def send_alert(instrument_name, spread_percentage):
-    current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[{current_time}] Spread of {instrument_name} is wider than {THRESHOLD_PERCENTAGE}% ( {spread_percentage} % spread)")
-    bot_service.send_message(f"[{current_time}] Spread of {instrument_name} is wider than {THRESHOLD_PERCENTAGE}% ( {spread_percentage} % spread)")
-
+                total_bid_depth = sum(float(bid[1]) for bid in bids)
+                total_ask_depth = sum(float(ask[1]) for ask in asks)
+                total_depth = min(total_bid_depth, total_ask_depth)
+            alertSender.send_insufficient_liquidity_alert(instrument_name, total_depth)
+            last_alert_time[instrument_name] = current_time
 
 async def connect_and_subscribe(instrument_name):
     uri = "wss://api.lyra.finance/ws"
@@ -113,10 +148,7 @@ async def connect_and_subscribe(instrument_name):
             }
         }
         print(subscription_request)
-        # Send the subscription request
         await websocket.send(json.dumps(subscription_request))
-
-        # Continuously receive and process messages from the WebSocket server
         while True:
             message = await websocket.recv()
             # print("Received message:", message)

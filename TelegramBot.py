@@ -1,6 +1,6 @@
 import telebot
 
-class TelegramBotService:
+class TelegramBot:
     def __init__(self, bot_token, chat_id):
         self.bot = telebot.TeleBot(bot_token)
         self.chat_id = chat_id
