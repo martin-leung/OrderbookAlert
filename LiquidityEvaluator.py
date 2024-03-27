@@ -1,4 +1,7 @@
 class LiquidityEvaluator:
+    def __init__(self, spread_amount):
+        self.spread_amount = spread_amount
+
     def calculate_effective_price(self, orderbook, spread_amount):
         total_amount = 0
         weighted_price = 0
@@ -12,9 +15,8 @@ class LiquidityEvaluator:
         return weighted_price / spread_amount if spread_amount != 0 else 0
 
     def calculate_spread_percentage(self, bids, asks, eth_price):
-        spread_amount = 10
-        effective_bid_price = self.calculate_effective_price(bids, spread_amount)
-        effective_ask_price = self.calculate_effective_price(asks, spread_amount)
+        effective_bid_price = self.calculate_effective_price(bids, self.spread_amount )
+        effective_ask_price = self.calculate_effective_price(asks, self.spread_amount )
         spread = effective_ask_price - effective_bid_price
         spread_percentage = abs(spread / eth_price)
         return spread_percentage
@@ -27,7 +29,6 @@ class LiquidityEvaluator:
             return None
 
     def enough_bids_and_asks(self, bids, asks):
-        min_spread_amount = 10  # Minimum spread amount required for calculation
         total_bids = sum(float(amount) for _, amount in bids)
         total_asks = sum(float(amount) for _, amount in asks)
-        return total_bids >= min_spread_amount and total_asks >= min_spread_amount
+        return total_bids >= self.spread_amount  and total_asks >= self.spread_amount
