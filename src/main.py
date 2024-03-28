@@ -11,11 +11,11 @@ import websockets
 bot_token = "6494493719:AAH054SZmUbBAPzNjcIrQONhGXQVs3gUUAQ"
 chat_id = "-1001994721570"
 spread_amount = 25
-threshhold_percentage = 0.05
+threshold_percentage = 0.05
 bot_service = TelegramBot(bot_token, chat_id)
 liquidityEvaluator = LiquidityEvaluator(spread_amount)
 alertSender = AlertSender(bot_service)
-messageProcessor = MessageProcessor(liquidityEvaluator, alertSender, threshhold_percentage)
+messageProcessor = MessageProcessor(liquidityEvaluator, alertSender, threshold_percentage)
 
 def connect_and_subscribe(instrument_name):
     async def subscribe():
@@ -48,10 +48,10 @@ def main():
     if instruments_data:
         instrument_names = InstrumentService.extract_instrument_names(instruments_data)
         if instrument_names:
-            sorted_keys = sorted(instrument_names.keys())
-            if len(sorted_keys) > 1:
-                second_lowest_key = sorted_keys[1]
-                min_instrument_names = instrument_names[second_lowest_key]
+            sorted_dates = sorted(instrument_names.keys())
+            if len(sorted_dates) > 1:
+                second_lowest_date = sorted_dates[1]
+                min_instrument_names = instrument_names[second_lowest_date]
                 threads = []
                 for instrument_name in min_instrument_names:
                     thread = threading.Thread(target=connect_and_subscribe, args=(instrument_name,))

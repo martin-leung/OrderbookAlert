@@ -50,7 +50,6 @@ class MessageProcessor:
             self.initial_alert_time[instrument_name] = current_time
         elif current_time - initial_alert_time_instrument >= self.DURATION_THRESHOLD_SECONDS:
             if current_time - last_alert >= self.ALERT_FREQUENCY_SECONDS:
-                print("Alert for empty bid and asks " + instrument_name + " found at time: " + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
                 self.alertSender.send_empty_alert(instrument_name, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
                 self.last_alert_time[instrument_name] = current_time
 
@@ -61,7 +60,6 @@ class MessageProcessor:
             self.initial_alert_time[instrument_name] = current_time
         elif current_time - initial_alert_time_instrument >= self.DURATION_THRESHOLD_SECONDS:
             if current_time - last_alert >= self.ALERT_FREQUENCY_SECONDS:
-                print("Alert for empty bid " + instrument_name + " found at time: " + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
                 self.alertSender.send_bids_empty_alert(instrument_name, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
                 self.last_alert_time[instrument_name] = current_time
 
@@ -72,7 +70,6 @@ class MessageProcessor:
             self.initial_alert_time[instrument_name] = current_time
         elif current_time - initial_alert_time_instrument >= self.DURATION_THRESHOLD_SECONDS:
             if current_time - last_alert >= self.ALERT_FREQUENCY_SECONDS:
-                print("Alert for empty ask " + instrument_name + " found at time: " + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
                 self.alertSender.send_asks_empty_alert(instrument_name, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
                 self.last_alert_time[instrument_name] = current_time
 

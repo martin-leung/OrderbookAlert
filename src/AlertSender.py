@@ -1,5 +1,3 @@
-from datetime import datetime
-
 class AlertSender:
     def __init__(self, bot_service):
         self.bot_service = bot_service
