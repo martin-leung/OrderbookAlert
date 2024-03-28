@@ -13,7 +13,7 @@ class MessageProcessor:
         self.ALERT_FREQUENCY_SECONDS = 300
         self.THRESHOLD_PERCENTAGE = threshold_percentage
 
-    def process_message(self, message, instrument_name):
+    def process_message(self, message, instrument_name, ):
         data = json.loads(message)
         params = data.get("params")
         if params and "data" in params:
@@ -51,7 +51,7 @@ class MessageProcessor:
         elif current_time - initial_alert_time_instrument >= self.DURATION_THRESHOLD_SECONDS:
             if current_time - last_alert >= self.ALERT_FREQUENCY_SECONDS:
                 print("Alert for empty bid and asks " + instrument_name + " found at time: " + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-                # self.alertSender.send_empty_alert(instrument_name)
+                self.alertSender.send_empty_alert(instrument_name, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
                 self.last_alert_time[instrument_name] = current_time
 
     def handle_empty_bids(self, instrument_name, current_time, initial_alert_time_instrument, last_alert):
@@ -62,7 +62,7 @@ class MessageProcessor:
         elif current_time - initial_alert_time_instrument >= self.DURATION_THRESHOLD_SECONDS:
             if current_time - last_alert >= self.ALERT_FREQUENCY_SECONDS:
                 print("Alert for empty bid " + instrument_name + " found at time: " + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-                # self.alertSender.send_bids_empty_alert(instrument_name)
+                self.alertSender.send_bids_empty_alert(instrument_name, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
                 self.last_alert_time[instrument_name] = current_time
 
     def handle_empty_asks(self, instrument_name, current_time, initial_alert_time_instrument, last_alert):
@@ -73,7 +73,7 @@ class MessageProcessor:
         elif current_time - initial_alert_time_instrument >= self.DURATION_THRESHOLD_SECONDS:
             if current_time - last_alert >= self.ALERT_FREQUENCY_SECONDS:
                 print("Alert for empty ask " + instrument_name + " found at time: " + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-                # self.alertSender.send_asks_empty_alert()
+                self.alertSender.send_asks_empty_alert(instrument_name, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
                 self.last_alert_time[instrument_name] = current_time
 
     def handle_sufficient_liquidity(self, bids, asks, eth_price, instrument_name, current_time, initial_alert_time_instrument, last_alert):
@@ -85,15 +85,15 @@ class MessageProcessor:
                 self.initial_alert_time[instrument_name] = current_time
             elif current_time - initial_alert_time_instrument >= self.DURATION_THRESHOLD_SECONDS:
                 if current_time - last_alert >= self.ALERT_FREQUENCY_SECONDS:
-                    self.alertSender.send_normal_alert(instrument_name, spread_percentage * 100, self.THRESHOLD_PERCENTAGE * 100)
+                    self.alertSender.send_normal_alert(instrument_name, spread_percentage * 100, self.THRESHOLD_PERCENTAGE * 100, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
                     self.last_alert_time[instrument_name] = current_time
         else:
             self.initial_alert_triggered[instrument_name] = False
             if instrument_name in self.initial_alert_time:
-                print("Deleted: " + instrument_name + " Spread: " + str(spread_percentage))
+                print("Reset: " + instrument_name + " Spread: " + str(spread_percentage))
                 del self.initial_alert_time[instrument_name]
             if instrument_name in self.last_alert_time:
-                print("Deleted: " + instrument_name + " Spread: " + str(spread_percentage))
+                print("Reset: " + instrument_name + " Spread: " + str(spread_percentage))
                 del self.last_alert_time[instrument_name]
 
     def handle_insufficient_liquidity(self, bids, asks, instrument_name, current_time, initial_alert_time_instrument, last_alert):
@@ -111,5 +111,5 @@ class MessageProcessor:
                     total_bid_depth = sum(float(bid[1]) for bid in bids)
                     total_ask_depth = sum(float(ask[1]) for ask in asks)
                     total_depth = min(total_bid_depth, total_ask_depth)
-                self.alertSender.send_insufficient_liquidity_alert(instrument_name, total_depth)
+                self.alertSender.send_insufficient_liquidity_alert(instrument_name, total_depth, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
                 self.last_alert_time[instrument_name] = current_time

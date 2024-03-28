@@ -11,8 +11,8 @@ class InstrumentService:
         }
         try:
             response = requests.get(url, params=params)
-            response.raise_for_status()  # Raise an exception for HTTP errors
-            data = response.json()  # Parse response as JSON
+            response.raise_for_status()
+            data = response.json()
             return data
         except requests.exceptions.RequestException as e:
             print("Error making request:", e)

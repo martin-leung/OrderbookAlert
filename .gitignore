@@ -1,5 +1,6 @@
 # Ignore Python bytecode files in __pycache__ directories
 __pycache__/*.pyc
+*pycache*
 
 # Ignore workspace.xml file in .idea directory
 .idea/workspace.xml

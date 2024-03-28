@@ -5,11 +5,15 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="9e8c8e91-0542-4b32-bd84-7e89e1597f21" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/MessageProcessor.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/AlertSender.py" beforeDir="false" afterPath="$PROJECT_DIR$/AlertSender.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/LiquidityEvaluator.py" beforeDir="false" afterPath="$PROJECT_DIR$/LiquidityEvaluator.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/AlertSender.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/AlertSender.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Dockerfile" beforeDir="false" afterPath="$PROJECT_DIR$/Dockerfile" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/InstrumentService.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/InstrumentService.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/LiquidityEvaluator.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/LiquidityEvaluator.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/MessageProcessor.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/MessageProcessor.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/TelegramBot.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/TelegramBot.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -46,6 +50,12 @@
     &quot;git-widget-placeholder&quot;: &quot;version1&quot;
   }
 }</component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/src" />
+      <recent name="$PROJECT_DIR$" />
+    </key>
+  </component>
   <component name="RunManager" selected="Python.main">
     <configuration name="TelegramBot" type="PythonConfigurationType" factoryName="Python" nameIsGenerated="true">
       <module name="AlertTool" />
@@ -60,7 +70,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/TelegramBot.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/TelegramBot.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
@@ -82,7 +92,7 @@
       <option name="IS_MODULE_SDK" value="true" />
       <option name="ADD_CONTENT_ROOTS" value="true" />
       <option name="ADD_SOURCE_ROOTS" value="true" />
-      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/main.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/src/main.py" />
       <option name="PARAMETERS" value="" />
       <option name="SHOW_COMMAND_LINE" value="false" />
       <option name="EMULATE_TERMINAL" value="false" />
